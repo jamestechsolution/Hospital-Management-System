@@ -1,0 +1,6 @@
+{
+  "name": "PulseCare HMS - Enterprise Healthcare Operating Platform",
+  "description": "Next-generation enterprise Hospital Management System connecting reception, clinical consultation, laboratory, pharmacy, inventory, billing, multi-branch operations, and analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
