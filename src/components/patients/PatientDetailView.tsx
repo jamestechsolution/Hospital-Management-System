@@ -224,9 +224,19 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patientId,
 
       {/* TAB CONTENT: Overview & Timeline */}
       {activeTab === 'overview' && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Latest Vitals Card */}
-          <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
+        <div className="space-y-6">
+          {/* Historical Vital Signs Recharts Trend Chart */}
+          <PatientVitalsTrend
+            patientId={patient.id}
+            patientName={`${patient.firstName} ${patient.lastName}`}
+            vitals={vitals}
+            onOpenRecordModal={() => setIsVitalsModalOpen(true)}
+            compact
+          />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Latest Vitals Card */}
+            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-2xs space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-xs font-bold uppercase tracking-wider text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
                 <Activity className="w-4 h-4 text-teal-600" />
@@ -350,6 +360,7 @@ export const PatientDetailView: React.FC<PatientDetailViewProps> = ({ patientId,
                 </div>
               ))}
             </div>
+          </div>
           </div>
         </div>
       )}

@@ -18,12 +18,11 @@ import {
 import {
   Activity,
   Heart,
+  Thermometer,
   TrendingDown,
   TrendingUp,
   Minus,
-  AlertCircle,
   Plus,
-  Maximize2,
   Calendar,
   Info,
 } from 'lucide-react';
@@ -37,7 +36,7 @@ export interface PatientVitalsTrendProps {
   className?: string;
 }
 
-type ChartMode = 'dual' | 'blood_pressure' | 'heart_rate';
+type ChartMode = 'dual' | 'blood_pressure' | 'heart_rate' | 'temperature';
 type TimeFilter = 'all' | 'last5' | 'last3';
 
 // Clinical BP Classification helper (AHA / ACC guidelines)
@@ -102,18 +101,65 @@ export function getHeartRateClassification(hr: number): {
   color: string;
 } {
   if (hr > 120) {
-    return { label: 'Severe Tachycardia (>120 bpm)', status: 'critical', color: 'text-rose-600' };
+    return { label: 'Severe Tachycardia (>120 bpm)', status: 'critical', color: 'text-rose-600 dark:text-rose-400' };
   }
   if (hr > 100) {
-    return { label: 'Tachycardia (>100 bpm)', status: 'warning', color: 'text-amber-600' };
+    return { label: 'Tachycardia (>100 bpm)', status: 'warning', color: 'text-amber-600 dark:text-amber-400' };
   }
   if (hr < 50) {
-    return { label: 'Marked Bradycardia (<50 bpm)', status: 'critical', color: 'text-rose-600' };
+    return { label: 'Marked Bradycardia (<50 bpm)', status: 'critical', color: 'text-rose-600 dark:text-rose-400' };
   }
   if (hr < 60) {
-    return { label: 'Bradycardia (<60 bpm)', status: 'warning', color: 'text-sky-600' };
+    return { label: 'Bradycardia (<60 bpm)', status: 'warning', color: 'text-sky-600 dark:text-sky-400' };
   }
-  return { label: 'Normal Resting (60-100 bpm)', status: 'normal', color: 'text-emerald-600' };
+  return { label: 'Normal Resting (60-100 bpm)', status: 'normal', color: 'text-emerald-600 dark:text-emerald-400' };
+}
+
+// Temperature classification helper
+export function getTemperatureClassification(temp: number): {
+  label: string;
+  status: 'normal' | 'warning' | 'critical';
+  color: string;
+  bgColor: string;
+} {
+  if (temp >= 38.5) {
+    return {
+      label: 'High Fever (≥38.5°C)',
+      status: 'critical',
+      color: 'text-rose-700 dark:text-rose-400',
+      bgColor: 'bg-rose-50 dark:bg-rose-950/60 border-rose-200 dark:border-rose-900',
+    };
+  }
+  if (temp >= 37.8) {
+    return {
+      label: 'Febrile (37.8–38.4°C)',
+      status: 'warning',
+      color: 'text-amber-700 dark:text-amber-400',
+      bgColor: 'bg-amber-50 dark:bg-amber-950/60 border-amber-200 dark:border-amber-900',
+    };
+  }
+  if (temp >= 37.3) {
+    return {
+      label: 'Low-Grade Fever (37.3–37.7°C)',
+      status: 'warning',
+      color: 'text-amber-600 dark:text-amber-400',
+      bgColor: 'bg-amber-50/70 dark:bg-amber-950/40 border-amber-200 dark:border-amber-800',
+    };
+  }
+  if (temp < 35.5) {
+    return {
+      label: 'Hypothermia (<35.5°C)',
+      status: 'warning',
+      color: 'text-sky-700 dark:text-sky-400',
+      bgColor: 'bg-sky-50 dark:bg-sky-950/60 border-sky-200 dark:border-sky-900',
+    };
+  }
+  return {
+    label: 'Afebrile (36.1–37.2°C)',
+    status: 'normal',
+    color: 'text-emerald-700 dark:text-emerald-400',
+    bgColor: 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800',
+  };
 }
 
 // Custom Recharts tooltip for clinical precision
@@ -123,6 +169,7 @@ const CustomClinicalTooltip = ({ active, payload }: any) => {
   const data = payload[0].payload;
   const bpClass = getBloodPressureClassification(data.systolic, data.diastolic);
   const hrClass = getHeartRateClassification(data.heartRate);
+  const tempClass = getTemperatureClassification(data.temperature);
 
   return (
     <div className="bg-slate-900/95 text-white dark:bg-slate-950/95 p-3 rounded-xl border border-slate-700 shadow-xl text-xs space-y-2 backdrop-blur-md max-w-xs z-50">
@@ -156,25 +203,26 @@ const CustomClinicalTooltip = ({ active, payload }: any) => {
         </div>
         <p className={`text-[10px] font-bold text-right ${hrClass.color}`}>{hrClass.label}</p>
 
+        <div className="flex items-center justify-between gap-3 pt-1 border-t border-slate-800">
+          <span className="text-slate-400 flex items-center gap-1.5">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" />
+            <span>Temperature:</span>
+          </span>
+          <span className="font-extrabold font-mono text-slate-100 text-sm">
+            {data.temperature?.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">°C</span>
+          </span>
+        </div>
+        <p className={`text-[10px] font-bold text-right ${tempClass.color}`}>{tempClass.label}</p>
+
         <div className="pt-1.5 border-t border-slate-800 grid grid-cols-2 gap-2 text-[10px] text-slate-300">
           <div>
             <span className="text-slate-400">MAP:</span>{' '}
             <span className="font-mono font-bold">{data.map} mmHg</span>
           </div>
-          <div>
-            <span className="text-slate-400">Pulse Press.:</span>{' '}
-            <span className="font-mono font-bold">{data.pulsePressure} mmHg</span>
-          </div>
           {data.spO2 && (
             <div>
               <span className="text-slate-400">SpO2:</span>{' '}
               <span className="font-mono font-bold text-cyan-300">{data.spO2}%</span>
-            </div>
-          )}
-          {data.temperature && (
-            <div>
-              <span className="text-slate-400">Temp:</span>{' '}
-              <span className="font-mono font-bold">{data.temperature}°C</span>
             </div>
           )}
         </div>
@@ -271,6 +319,9 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
     ? latestReading.bloodPressureDiastolic - previousReading.bloodPressureDiastolic
     : 0;
   const hrDelta = previousReading ? latestReading.heartRate - previousReading.heartRate : 0;
+  const tempDelta = previousReading
+    ? Number((latestReading.temperature - previousReading.temperature).toFixed(1))
+    : 0;
 
   const latestBpClass = latestReading
     ? getBloodPressureClassification(
@@ -280,6 +331,9 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
     : null;
   const latestHrClass = latestReading
     ? getHeartRateClassification(latestReading.heartRate)
+    : null;
+  const latestTempClass = latestReading
+    ? getTemperatureClassification(latestReading.temperature)
     : null;
 
   return (
@@ -295,14 +349,14 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
           <div>
             <div className="flex items-center gap-2">
               <h3 className="text-xs font-bold uppercase tracking-wider text-slate-900 dark:text-slate-100">
-                Hemodynamic Trends & Vitals Trajectory
+                Historical Vital Signs & Hemodynamic Trends
               </h3>
               <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300">
                 {sortedVitals.length} {sortedVitals.length === 1 ? 'Reading' : 'Readings'}
               </span>
             </div>
             <p className="text-[11px] text-slate-500 dark:text-slate-400">
-              Longitudinal tracking of Blood Pressure (mmHg) & Heart Rate (bpm)
+              Longitudinal tracking of Blood Pressure (mmHg), Heart Rate (bpm) & Temperature (°C)
               {patientName ? ` for ${patientName}` : ''}
             </p>
           </div>
@@ -315,18 +369,18 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
             <button
               type="button"
               onClick={() => setChartMode('dual')}
-              className={`px-2.5 py-1 rounded-lg transition ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                 chartMode === 'dual'
                   ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-2xs font-bold'
                   : 'hover:text-slate-900 dark:hover:text-white'
               }`}
             >
-              Dual View
+              All Vitals
             </button>
             <button
               type="button"
               onClick={() => setChartMode('blood_pressure')}
-              className={`px-2.5 py-1 rounded-lg transition ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                 chartMode === 'blood_pressure'
                   ? 'bg-white dark:bg-slate-700 text-rose-700 dark:text-rose-300 shadow-2xs font-bold'
                   : 'hover:text-slate-900 dark:hover:text-white'
@@ -337,13 +391,24 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
             <button
               type="button"
               onClick={() => setChartMode('heart_rate')}
-              className={`px-2.5 py-1 rounded-lg transition ${
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
                 chartMode === 'heart_rate'
                   ? 'bg-white dark:bg-slate-700 text-emerald-700 dark:text-emerald-300 shadow-2xs font-bold'
                   : 'hover:text-slate-900 dark:hover:text-white'
               }`}
             >
               HR Focus
+            </button>
+            <button
+              type="button"
+              onClick={() => setChartMode('temperature')}
+              className={`px-2.5 py-1 rounded-lg transition cursor-pointer ${
+                chartMode === 'temperature'
+                  ? 'bg-white dark:bg-slate-700 text-amber-700 dark:text-amber-300 shadow-2xs font-bold'
+                  : 'hover:text-slate-900 dark:hover:text-white'
+              }`}
+            >
+              Temp Focus
             </button>
           </div>
 
@@ -353,7 +418,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
               <button
                 type="button"
                 onClick={() => setTimeFilter('all')}
-                className={`px-2 py-0.5 rounded-lg transition ${
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
                   timeFilter === 'all'
                     ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs font-bold'
                     : ''
@@ -364,7 +429,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
               <button
                 type="button"
                 onClick={() => setTimeFilter('last5')}
-                className={`px-2 py-0.5 rounded-lg transition ${
+                className={`px-2 py-0.5 rounded-lg transition cursor-pointer ${
                   timeFilter === 'last5'
                     ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-2xs font-bold'
                     : ''
@@ -399,7 +464,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
             }`}
           >
             <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-              <span className="font-semibold uppercase tracking-wider">Latest BP</span>
+              <span className="font-semibold uppercase tracking-wider">Blood Pressure</span>
               {previousReading && (
                 <span
                   className={`flex items-center font-bold font-mono text-[10px] ${
@@ -409,7 +474,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                       ? 'text-rose-600 dark:text-rose-400'
                       : 'text-slate-400'
                   }`}
-                  title="Systolic change vs prior reading"
+                  title={`Systolic ${sbpDelta >= 0 ? `+${sbpDelta}` : sbpDelta} / Diastolic ${dbpDelta >= 0 ? `+${dbpDelta}` : dbpDelta} mmHg vs prior reading`}
                 >
                   {sbpDelta > 0 ? (
                     <TrendingUp className="w-3 h-3 mr-0.5" />
@@ -437,7 +502,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
           <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
             <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
               <span className="font-semibold uppercase tracking-wider flex items-center gap-1">
-                <Heart className="w-3 h-3 text-rose-500" />
+                <Heart className="w-3 h-3 text-emerald-500" />
                 <span>Heart Rate</span>
               </span>
               {previousReading && (
@@ -466,10 +531,50 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
             </p>
           </div>
 
-          {/* Mean Arterial Pressure (MAP) */}
+          {/* Temperature Card */}
+          <div
+            className={`p-2.5 rounded-xl border transition ${
+              latestTempClass?.bgColor || 'bg-slate-50 dark:bg-slate-800/60 border-slate-200 dark:border-slate-800'
+            }`}
+          >
+            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
+              <span className="font-semibold uppercase tracking-wider flex items-center gap-1">
+                <Thermometer className="w-3 h-3 text-amber-500" />
+                <span>Temperature</span>
+              </span>
+              {previousReading && (
+                <span
+                  className={`flex items-center font-bold font-mono text-[10px] ${
+                    tempDelta < 0
+                      ? 'text-emerald-600 dark:text-emerald-400'
+                      : tempDelta > 0
+                      ? 'text-amber-600 dark:text-amber-400'
+                      : 'text-slate-400'
+                  }`}
+                  title="Temperature change vs prior reading"
+                >
+                  {tempDelta > 0 ? `+${tempDelta}` : tempDelta}°C
+                </span>
+              )}
+            </div>
+            <div className="mt-0.5 flex items-baseline gap-1">
+              <span className="text-base font-black font-mono text-slate-900 dark:text-white">
+                {latestReading.temperature.toFixed(1)}
+              </span>
+              <span className="text-[10px] text-slate-500 font-mono">°C</span>
+            </div>
+            <p className={`text-[10px] font-bold truncate mt-0.5 ${latestTempClass?.color}`}>
+              {latestTempClass?.label}
+            </p>
+          </div>
+
+          {/* MAP & SpO2 Card */}
           <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
             <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-              <span className="font-semibold uppercase tracking-wider">MAP (Mean Arterial)</span>
+              <span className="font-semibold uppercase tracking-wider">MAP / SpO2</span>
+              <span className="font-mono font-bold text-cyan-600 dark:text-cyan-400">
+                {latestReading.spO2}% O₂
+              </span>
             </div>
             <div className="mt-0.5 flex items-baseline gap-1">
               <span className="text-base font-black font-mono text-slate-900 dark:text-white">
@@ -478,26 +583,10 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     (latestReading.bloodPressureSystolic - latestReading.bloodPressureDiastolic) / 3
                 )}
               </span>
-              <span className="text-[10px] text-slate-500 font-mono">mmHg</span>
+              <span className="text-[10px] text-slate-500 font-mono">mmHg MAP</span>
             </div>
             <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-              Normal range: 70–100 mmHg
-            </p>
-          </div>
-
-          {/* Pulse Pressure */}
-          <div className="p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/60">
-            <div className="flex items-center justify-between text-[10px] text-slate-500 dark:text-slate-400">
-              <span className="font-semibold uppercase tracking-wider">Pulse Pressure</span>
-            </div>
-            <div className="mt-0.5 flex items-baseline gap-1">
-              <span className="text-base font-black font-mono text-slate-900 dark:text-white">
-                {latestReading.bloodPressureSystolic - latestReading.bloodPressureDiastolic}
-              </span>
-              <span className="text-[10px] text-slate-500 font-mono">mmHg (SBP - DBP)</span>
-            </div>
-            <p className="text-[10px] text-slate-500 font-medium truncate mt-0.5">
-              Normal range: 30–50 mmHg
+              Pulse Press: {latestReading.bloodPressureSystolic - latestReading.bloodPressureDiastolic} mmHg
             </p>
           </div>
         </div>
@@ -537,10 +626,12 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
               <LineChart data={chartData} margin={{ top: 10, right: 20, left: -10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" opacity={0.5} />
                 <XAxis dataKey="label" tick={{ fontSize: 10, fill: '#64748b' }} />
-                <YAxis domain={[50, 180]} tick={{ fontSize: 10, fill: '#64748b' }} />
+                <YAxis yAxisId="bp" domain={[50, 180]} tick={{ fontSize: 10, fill: '#64748b' }} />
+                <YAxis yAxisId="temp" orientation="right" domain={[35, 41]} hide />
                 <Tooltip content={<CustomClinicalTooltip />} />
                 <Legend wrapperStyle={{ fontSize: 11, paddingTop: 6 }} />
                 <Line
+                  yAxisId="bp"
                   type="monotone"
                   dataKey="systolic"
                   name="Systolic BP (mmHg)"
@@ -549,6 +640,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                   dot={{ r: 6, fill: '#ef4444' }}
                 />
                 <Line
+                  yAxisId="bp"
                   type="monotone"
                   dataKey="diastolic"
                   name="Diastolic BP (mmHg)"
@@ -557,12 +649,22 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                   dot={{ r: 6, fill: '#0284c7' }}
                 />
                 <Line
+                  yAxisId="bp"
                   type="monotone"
                   dataKey="heartRate"
                   name="Heart Rate (bpm)"
                   stroke="#10b981"
                   strokeWidth={2.5}
                   dot={{ r: 6, fill: '#10b981' }}
+                />
+                <Line
+                  yAxisId="temp"
+                  type="monotone"
+                  dataKey="temperature"
+                  name="Temperature (°C)"
+                  stroke="#f59e0b"
+                  strokeWidth={2.5}
+                  dot={{ r: 6, fill: '#f59e0b' }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -574,7 +676,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
           <div className={compact ? 'h-52 w-full' : 'h-64 sm:h-72 w-full'}>
             <ResponsiveContainer width="100%" height="100%">
               {chartMode === 'dual' ? (
-                /* DUAL AXIS: Blood Pressure (Left) + Heart Rate (Right) */
+                /* ALL VITALS: Blood Pressure (Left) + Heart Rate (Right) + Temperature (°C) */
                 <LineChart data={chartData} margin={{ top: 12, right: 15, left: -12, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} vertical={false} />
                   <XAxis
@@ -616,6 +718,13 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                       offset: 14,
                     }}
                   />
+                  {/* Scaled Temperature Axis */}
+                  <YAxis
+                    yAxisId="temp"
+                    orientation="right"
+                    domain={[35, 41]}
+                    hide
+                  />
                   <Tooltip content={<CustomClinicalTooltip />} />
                   <Legend
                     verticalAlign="top"
@@ -656,7 +765,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     yAxisId="bp"
                     type="monotone"
                     dataKey="systolic"
-                    name="Systolic BP"
+                    name="Systolic BP (mmHg)"
                     stroke="#ef4444"
                     strokeWidth={2.5}
                     dot={{ r: 4, stroke: '#ef4444', strokeWidth: 2, fill: '#ffffff' }}
@@ -668,7 +777,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     yAxisId="bp"
                     type="monotone"
                     dataKey="diastolic"
-                    name="Diastolic BP"
+                    name="Diastolic BP (mmHg)"
                     stroke="#0284c7"
                     strokeWidth={2.5}
                     dot={{ r: 4, stroke: '#0284c7', strokeWidth: 2, fill: '#ffffff' }}
@@ -680,12 +789,24 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     yAxisId="hr"
                     type="monotone"
                     dataKey="heartRate"
-                    name="Heart Rate"
+                    name="Heart Rate (bpm)"
                     stroke="#10b981"
                     strokeWidth={2}
                     strokeDasharray="3 3"
                     dot={{ r: 4, stroke: '#10b981', strokeWidth: 2, fill: '#ffffff' }}
                     activeDot={{ r: 6, fill: '#10b981' }}
+                  />
+
+                  {/* Temperature Line */}
+                  <Line
+                    yAxisId="temp"
+                    type="monotone"
+                    dataKey="temperature"
+                    name="Temperature (°C)"
+                    stroke="#f59e0b"
+                    strokeWidth={2}
+                    dot={{ r: 3.5, stroke: '#f59e0b', strokeWidth: 2, fill: '#ffffff' }}
+                    activeDot={{ r: 6, fill: '#f59e0b' }}
                   />
                 </LineChart>
               ) : chartMode === 'blood_pressure' ? (
@@ -779,7 +900,7 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     dot={false}
                   />
                 </AreaChart>
-              ) : (
+              ) : chartMode === 'heart_rate' ? (
                 /* HEART RATE FOCUS: Pulse curve with Normal Rest Zone (60-100 bpm) */
                 <AreaChart data={chartData} margin={{ top: 12, right: 15, left: -12, bottom: 5 }}>
                   <defs>
@@ -847,6 +968,75 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
                     dot={{ r: 4, stroke: '#10b981', strokeWidth: 2, fill: '#fff' }}
                   />
                 </AreaChart>
+              ) : (
+                /* TEMPERATURE FOCUS: Thermal curve with Normal Core Zone (36.1–37.2°C) */
+                <AreaChart data={chartData} margin={{ top: 12, right: 15, left: -12, bottom: 5 }}>
+                  <defs>
+                    <linearGradient id="tempGrad" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.35} />
+                      <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#94a3b8" opacity={0.2} vertical={false} />
+                  <XAxis
+                    dataKey="label"
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    tickLine={false}
+                  />
+                  <YAxis
+                    domain={[35, 40.5]}
+                    tick={{ fontSize: 10, fill: '#64748b' }}
+                    tickLine={false}
+                    label={{
+                      value: 'Temperature (°C)',
+                      angle: -90,
+                      position: 'insideLeft',
+                      fontSize: 10,
+                      fill: '#f59e0b',
+                      offset: 14,
+                    }}
+                  />
+                  <Tooltip content={<CustomClinicalTooltip />} />
+                  <Legend verticalAlign="top" align="right" wrapperStyle={{ fontSize: 11 }} />
+
+                  {/* Normal Core Temperature Zone (36.1 - 37.2°C) */}
+                  <ReferenceArea
+                    y1={36.1}
+                    y2={37.2}
+                    fill="#10b981"
+                    fillOpacity={0.08}
+                    label={{
+                      value: 'Normal Core Range (36.1–37.2°C)',
+                      position: 'insideTopLeft',
+                      fill: '#059669',
+                      fontSize: 9,
+                    }}
+                  />
+                  <ReferenceLine
+                    y={38.5}
+                    stroke="#e11d48"
+                    strokeDasharray="3 3"
+                    label={{ value: 'High Fever Alert (38.5°C)', fill: '#e11d48', fontSize: 9 }}
+                  />
+                  <ReferenceLine
+                    y={37.8}
+                    stroke="#f59e0b"
+                    strokeDasharray="3 3"
+                    label={{ value: 'Febrile Threshold (37.8°C)', fill: '#f59e0b', fontSize: 9 }}
+                  />
+
+                  <Area
+                    type="monotone"
+                    dataKey="temperature"
+                    name="Body Temperature (°C)"
+                    stroke="#f59e0b"
+                    strokeWidth={2.5}
+                    fillOpacity={1}
+                    fill="url(#tempGrad)"
+                    dot={{ r: 4, stroke: '#f59e0b', strokeWidth: 2, fill: '#fff' }}
+                    activeDot={{ r: 6, fill: '#f59e0b' }}
+                  />
+                </AreaChart>
               )}
             </ResponsiveContainer>
           </div>
@@ -856,15 +1046,19 @@ export const PatientVitalsTrend: React.FC<PatientVitalsTrendProps> = ({
             <div className="flex items-center gap-3 flex-wrap">
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-1 bg-rose-500 rounded inline-block" />
-                <span>Systolic (Optimal &lt;120 mmHg)</span>
+                <span>Systolic (&lt;120 mmHg)</span>
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-1 bg-sky-500 rounded inline-block" />
-                <span>Diastolic (Optimal &lt;80 mmHg)</span>
+                <span>Diastolic (&lt;80 mmHg)</span>
               </span>
               <span className="flex items-center gap-1">
                 <span className="w-2.5 h-1 bg-emerald-500 rounded inline-block" />
-                <span>Heart Rate (Normal 60–100 bpm)</span>
+                <span>Heart Rate (60–100 bpm)</span>
+              </span>
+              <span className="flex items-center gap-1">
+                <span className="w-2.5 h-1 bg-amber-500 rounded inline-block" />
+                <span>Temperature (36.1–37.2°C)</span>
               </span>
             </div>
 
